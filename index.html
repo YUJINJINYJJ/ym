@@ -459,7 +459,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
         </p>
         <div style="margin-bottom:12px">
           <label style="font-size:14px;display:block;margin-bottom:6px">AI 大模型</label>
-          <input type="text" id="key_ai" placeholder="粘贴你的 key" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off">
+          <input type="text" id="key_ai" placeholder="粘贴你的 key" autocomplete="one-time-code" inputmode="verbatim" spellcheck="false" autocapitalize="none" autocorrect="off" data-lpignore="true" data-form-type="other">
           <p class="hint">在 platform.deepseek.com 注册后，「API Keys」里创建一个</p>
         </div>
         <button class="btn" onclick="Settings.saveKeys()">保存</button>
