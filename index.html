@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  云墨                                                          ║
+  ║  由 不一书个人工作台生成器 (bys-personal-dashboard) 生成       ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║  改这个文件时请遵守：                                          ║
+  ║  1. 每个功能必须被分区标记包裹，且 START 和 END 的功能名        ║
+  ║     必须一字不差（HTML 和 JS 两处都要）                        ║
+  ║  2. 数据读写只走 Store.*，不要直接碰 localStorage             ║
+  ║  3. 输入框 font-size 不能小于 16px                            ║
+  ║  4. 敏感数据（API key）走 Store.setSecret，不进备份            ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>云墨</title>
+
+<!-- PWA：这四行决定了"添加到主屏幕"之后是不是全屏、图标好不好看 -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="云墨">
+<meta name="theme-color" content="#ede6d6">
+
+<style>
+/* ==== 主题变量（第1版·宣纸淡蓝） ==== */
+:root{
+  --bg: #f2ece1;
+  --sidebar: #ede6d6;
+  --sidebar-text: #5c4a3d;
+  --sidebar-active: #c8dce8;
+  --card: #fdfaf4;
+  --text: #3b322b;
+  --text-dim: #8c7f73;
+  --accent: #6b9fc4;
+  --radius: 14px;
+  --shadow: 0 2px 10px rgba(90,70,50,.08);
+  --font: -apple-system, "PingFang SC", system-ui, sans-serif;
+  --line: #e3d9c4;
+
+  /* 字号阶梯 —— 故意拉开跨度。所有字号都差不多，是业余感最大的来源 */
+  --fs-hero:40px;   /* 英雄元素：每页最大的那一个数字或标题，其余全部退后 */
+  --fs-title:22px;
+  --fs-body:16px;   /* 输入框不得低于 16px，否则 iOS 会自动放大整页 */
+  --fs-meta:13px;
+
+  --pad:18px;       /* 卡片内边距。留白是最便宜的高级感，宽屏下会变大 */
+  --gap:12px;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --dur:.18s;
+}
+
+/* ==== 基础 ==== */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:var(--font); background:var(--bg); color:var(--text);
+  font-size:var(--fs-body); line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden; /* 整页不滚，只让内容区滚 —— 避免 iOS 橡皮筋把侧边栏拽走 */
+}
+.app{display:flex;height:100%}
+
+/* ==== 侧边栏：常驻窄条 ==== */
+.side{
+  width:76px;flex-shrink:0;background:var(--sidebar);
+  display:flex;flex-direction:column;
+  padding:calc(12px + env(safe-area-inset-top,0)) 6px calc(12px + env(safe-area-inset-bottom,0));
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.side::-webkit-scrollbar{display:none}
+.brand{text-align:center;margin-bottom:14px;flex-shrink:0}
+.brand .logo{font-size:26px;line-height:1}
+.brand .name{font-size:11px;color:var(--sidebar-text);opacity:.85;margin-top:4px;line-height:1.3;word-break:break-all}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav button{
+  border:none;background:transparent;font-family:inherit;
+  padding:10px 2px;border-radius:12px;
+  color:var(--sidebar-text);font-size:11px;line-height:1.3;
+}
+.nav button .ico{display:block;font-size:21px;margin-bottom:3px}
+.nav button.on{background:var(--sidebar-active)}
+
+/* ==== 内容区 ==== */
+.main{
+  flex:1;min-width:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(14px + env(safe-area-inset-top,0)) 12px calc(28px + env(safe-area-inset-bottom,0));
+  scroll-behavior:smooth;
+}
+.page{display:none;flex-direction:column;gap:var(--gap)}
+.page.on{display:flex}
+.page-title{font-size:var(--fs-title);font-weight:500;line-height:1.25;letter-spacing:-.01em;margin-bottom:2px}
+.page-sub{font-size:var(--fs-meta);color:var(--text-dim);margin-top:-6px;margin-bottom:2px}
+
+/* ==== 卡片 ==== */
+.card{
+  background:var(--card);border-radius:var(--radius);
+  border:1px solid var(--line);   /* 细线代替投影 */
+  box-shadow:var(--shadow);padding:var(--pad);
+}
+.card h2{font-size:17px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.hint{font-size:var(--fs-meta);color:var(--text-dim);margin-top:8px;line-height:1.6}
+.empty{font-size:var(--fs-meta);color:var(--text-dim);text-align:center;padding:22px 0}
+
+/* 英雄元素：每页最大的那一个。数字一律等宽，对齐后立刻专业 */
+.hero{font-size:var(--fs-hero);font-weight:500;line-height:1.1;letter-spacing:-.01em}
+.num,.hero{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.unit{font-size:var(--fs-meta);color:var(--text-dim);font-weight:400;margin-left:5px}
+
+/* ==== 表单：字号必须 >=16px，否则 iOS 会自动放大整页 ==== */
+input,textarea,select{
+  transition:border-color var(--dur) var(--ease);
+  width:100%;font-size:var(--fs-body);font-family:inherit;color:var(--text);line-height:1.5;
+  padding:11px 13px;border:1px solid rgba(128,128,128,.28);
+  border-radius:calc(var(--radius) - 6px);background:transparent;
+}
+textarea{min-height:88px;resize:vertical;line-height:1.6}
+input::placeholder,textarea::placeholder{color:var(--text-dim)}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+.btn{
+  padding:11px 18px;font-size:15px;font-family:inherit;white-space:nowrap;
+  border:none;border-radius:calc(var(--radius) - 6px);
+  background:var(--accent);color:#fff;
+}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid rgba(128,128,128,.3)}
+.btn.danger{background:#d9534f}
+.btn:active{opacity:.75}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:center}
+.row .btn{flex-shrink:0}
+
+/* ==== 列表 ==== */
+.item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px dashed rgba(128,128,128,.22)}
+.item:last-child{border-bottom:none}
+.item .grow{flex:1;min-width:0;line-height:1.6}
+.item .del{color:var(--text-dim);font-size:16px;background:none;border:none;padding:0 4px;flex-shrink:0}
+.box{
+  width:21px;height:21px;flex-shrink:0;margin-top:1px;
+  border:2px solid var(--accent);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:#fff;background:transparent;
+}
+.item.done .box{background:var(--accent)}
+.item.done .grow{text-decoration:line-through;color:var(--text-dim)}
+
+/* ==== 提示条 ==== */
+.banner{
+  background:var(--accent);color:#fff;padding:11px 14px;
+  border-radius:var(--radius);font-size:13px;line-height:1.5;
+  display:flex;align-items:center;gap:10px;
+}
+.banner button{
+  margin-left:auto;flex-shrink:0;background:rgba(255,255,255,.22);color:#fff;
+  border:none;padding:6px 12px;border-radius:8px;font-size:13px;font-family:inherit;
+}
+.toast{
+  position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0));
+  transform:translateX(-50%) translateY(8px);z-index:99;
+  background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:20px;
+  font-size:14px;opacity:0;pointer-events:none;
+  transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ==== 筛选标签 ==== */
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tag{
+  padding:6px 12px;font-size:13px;font-family:inherit;
+  border:1px solid var(--line);border-radius:20px;background:transparent;
+  color:var(--text-dim);cursor:pointer;
+}
+.tag.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ==== 进度条 ==== */
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:8px 0}
+.bar>span{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .4s var(--ease)}
+
+/* ==== 热力图小方块 ==== */
+.heat{display:flex;gap:5px;margin-top:10px}
+.sq{width:22px;height:22px;border-radius:5px;background:var(--line)}
+.sq.l1{background:var(--accent);opacity:.3}
+.sq.l2{background:var(--accent);opacity:.55}
+.sq.l3{background:var(--accent);opacity:.8}
+.sq.l4{background:var(--accent);opacity:1}
+
+/* ==== 聊天 ==== */
+.chat-msgs{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:10px;padding:4px;-webkit-overflow-scrolling:touch}
+.chat-msgs::-webkit-scrollbar{display:none}
+.msg{padding:9px 13px;border-radius:14px;max-width:85%;line-height:1.55;font-size:15px;word-break:break-word}
+.msg.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.ai{align-self:flex-start;background:var(--line);color:var(--text);border-bottom-left-radius:4px}
+
+/* ==== 每日一句 ==== */
+.sentence{font-size:17px;line-height:1.6;margin-bottom:8px;font-weight:500}
+.translation{font-size:15px;color:var(--text-dim);margin-bottom:10px;line-height:1.6}
+.kpoint{font-size:14px;color:var(--text-dim);background:var(--bg);padding:10px 12px;border-radius:10px;line-height:1.6}
+
+/* ════════ 动画 ════════
+   只做「让状态变化可理解」的动画，不做炫技的。
+   这是一天开十次的工具，任何多余动效第十次看就烦了。 */
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.page.on > *{animation:rise .26s var(--ease) both}
+/* 错开进场，形成自上而下的节奏，只错开前几个免得末尾等太久 */
+.page.on > *:nth-child(1){animation-delay:0s}
+.page.on > *:nth-child(2){animation-delay:.03s}
+.page.on > *:nth-child(3){animation-delay:.06s}
+.page.on > *:nth-child(4){animation-delay:.09s}
+.page.on > *:nth-child(n+5){animation-delay:.12s}
+
+.nav button,.btn,.card,.item .box{transition:all var(--dur) var(--ease)}
+.btn:active{opacity:.75;transform:scale(.98)}
+.item .box{transform:scale(1)}
+.item.done .box{animation:pop .22s var(--ease)}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+/* 用户在系统里关了动效就一律不放 —— 这不是可选项 */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-delay:0s !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
+
+/* ════════ 平板与横屏：侧栏展开成图标配文字 ════════ */
+@media (min-width:700px){
+  :root{--fs-hero:48px;--fs-title:26px;--pad:24px;--gap:16px}
+  .side{width:200px;padding-left:12px;padding-right:12px}
+  .brand{text-align:left;padding:0 8px;margin-bottom:22px}
+  .brand .logo{font-size:30px}
+  .brand .name{font-size:14px;margin-top:6px;word-break:normal}
+  .nav{gap:2px}
+  .nav button{
+    display:flex;align-items:center;gap:12px;text-align:left;
+    padding:12px 14px;font-size:15px;
+  }
+  .nav button .ico{display:inline;font-size:20px;margin:0;width:24px;text-align:center}
+  .main{padding:28px 32px 40px}
+}
+
+/* ════════ 桌面：卡片并排 ════════
+   标题、副标题、提示条永远占满整行；卡片默认半宽。
+   需要占满的重要卡片（英雄卡、长列表）加 class="card wide"。 */
+@media (min-width:1100px){
+  :root{--fs-hero:56px;--fs-title:30px;--pad:30px;--gap:20px}
+  .side{width:240px}
+  .main{padding:36px 44px 52px}
+  .page.on{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:var(--gap);align-content:start;
+  }
+  .page.on > .page-title,
+  .page.on > .page-sub,
+  .page.on > .banner,
+  .page.on > .card.wide{grid-column:1 / -1}
+}
+
+/* 超宽屏限制内容宽度并居中 —— 一行文字超过 40 个汉字就难读了 */
+@media (min-width:1700px){
+  .main > .page.on{max-width:1400px;margin:0 auto}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ==== 侧边栏 START ==== -->
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">☁️</div>
+      <div class="name">云墨</div>
+    </div>
+    <nav class="nav" id="nav">
+      <!-- 由 App.routes 自动渲染 -->
+    </nav>
+  </aside>
+  <!-- ==== 侧边栏 END ==== -->
+
+  <main class="main" id="main">
+
+    <!-- ==== 功能：学习计划 START ==== -->
+    <section class="page" id="page-plan">
+      <div class="page-title">学习计划</div>
+      <div class="page-sub">按科目管理每日待办，第二天自动重置</div>
+      <div class="card">
+        <h2>📅 今日待办</h2>
+        <div class="tags" id="planTags"></div>
+        <div class="row" style="margin-bottom:10px">
+          <select id="planSubject" style="width:auto;flex-shrink:0">
+            <option value="英语">英语</option>
+            <option value="数学">数学</option>
+            <option value="政治">政治</option>
+            <option value="C语言">C语言</option>
+          </select>
+          <input type="text" id="planInput" placeholder="输入学习任务，回车添加" onkeydown="if(event.key==='Enter')Plan.add()" style="flex:1">
+          <button class="btn" onclick="Plan.add()">添加</button>
+        </div>
+        <div id="planList"></div>
+      </div>
+    </section>
+    <!-- ==== 功能：学习计划 END ==== -->
+
+    <!-- ==== 功能：AI学习助手 START ==== -->
+    <section class="page" id="page-ailearn">
+      <div class="page-title">AI 学习助手</div>
+      <div class="page-sub">每日一句 + AI 智能摘录</div>
+      <div class="card">
+        <h2>📖 每日一句英语</h2>
+        <div id="dailySentence"></div>
+      </div>
+      <div class="card">
+        <h2>✂️ AI 摘录</h2>
+        <p class="hint" style="margin-top:0;margin-bottom:10px">输入一段内容，AI 自动归类保存。</p>
+        <textarea id="clipInput" placeholder="粘贴或输入想摘录的内容…"></textarea>
+        <div class="row" style="margin-top:8px;margin-bottom:12px">
+          <button class="btn" id="clipBtn" onclick="AiLearn.classify()" style="margin-left:auto">归类</button>
+        </div>
+        <div class="tags" id="clipTags"></div>
+        <div id="clipList"></div>
+      </div>
+    </section>
+    <!-- ==== 功能：AI学习助手 END ==== -->
+
+    <!-- ==== 功能：备考计时 START ==== -->
+    <section class="page" id="page-timer">
+      <div class="page-title">备考计时</div>
+      <div class="page-sub">倒计时 + 番茄钟，保持节奏</div>
+      <div class="card">
+        <h2>🎯 考试倒计时</h2>
+        <div id="timerCountdown"></div>
+      </div>
+      <div class="card">
+        <h2>🍅 番茄钟</h2>
+        <div id="timerPomodoro"></div>
+      </div>
+    </section>
+    <!-- ==== 功能：备考计时 END ==== -->
+
+    <!-- ==== 功能：错题记录 START ==== -->
+    <section class="page" id="page-errors">
+      <div class="page-title">错题记录</div>
+      <div class="page-sub">按科目记录错题和解析，考前翻一遍</div>
+      <div class="card">
+        <h2>❌ 添加错题</h2>
+        <div class="row" style="margin-bottom:8px">
+          <select id="errorSubject" style="width:auto;flex-shrink:0">
+            <option value="英语">英语</option>
+            <option value="数学">数学</option>
+            <option value="政治">政治</option>
+            <option value="C语言">C语言</option>
+          </select>
+        </div>
+        <input type="text" id="errorText" placeholder="错题内容（题目或知识点）" style="margin-bottom:8px">
+        <textarea id="errorAnalysis" placeholder="解析或原因（可选）" style="min-height:60px"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" onclick="Errors.add()" style="margin-left:auto">添加</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 错题列表</h2>
+        <div class="tags" id="errorTags"></div>
+        <div id="errorList"></div>
+      </div>
+    </section>
+    <!-- ==== 功能：错题记录 END ==== -->
+
+    <!-- ==== 功能：AI英语陪练 START ==== -->
+    <section class="page" id="page-chat">
+      <div class="page-title">AI 英语陪练</div>
+      <div class="page-sub">用英语和 AI 对话，练出语感</div>
+      <div id="chatBannerHolder"></div>
+      <div class="card wide">
+        <div class="chat-msgs" id="chatMsgs"></div>
+        <div class="row">
+          <input type="text" id="chatInput" placeholder="Type in English…" onkeydown="if(event.key==='Enter')Chat.send()" style="flex:1">
+          <button class="btn" id="chatSendBtn" onclick="Chat.send()">发送</button>
+        </div>
+      </div>
+    </section>
+    <!-- ==== 功能：AI英语陪练 END ==== -->
+
+    <!-- ==== 功能：周复盘 START ==== -->
+    <section class="page" id="page-recap">
+      <div class="page-title">这一周</div>
+      <div class="page-sub">周日晚上看一眼，比任何提醒都管用</div>
+      <div class="card wide">
+        <div id="recapBody"></div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn" onclick="Recap.makeCard()">生成图卡</button>
+        </div>
+        <p class="hint">生成一张能存下来的图，想发就发。图上不含你的具体记录内容。</p>
+      </div>
+    </section>
+    <!-- ==== 功能：周复盘 END ==== -->
+
+    <!-- ==== 功能：设置 START ==== -->
+    <section class="page" id="page-settings">
+      <div class="page-title">设置</div>
+
+      <div class="card">
+        <h2>💾 数据备份</h2>
+        <p class="hint" style="margin-top:0;margin-bottom:12px">
+          你的所有数据都存在这台手机的浏览器里，不在任何服务器上。<br>
+          换手机、清理浏览器数据前，记得先导出备份。
+        </p>
+        <div class="row">
+          <button class="btn" onclick="Store.exportFile()">导出备份</button>
+          <button class="btn ghost" onclick="document.getElementById('importFile').click()">恢复备份</button>
+        </div>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="Store.importFile(this)">
+        <p class="hint" id="backupInfo"></p>
+      </div>
+
+      <!-- ==== 双端同步卡片 START ==== -->
+      <div class="card wide" id="syncCard">
+        <h2>🔄 双端同步 <span class="hint" id="syncState" style="margin:0 0 0 auto;font-size:var(--fs-meta)"></span></h2>
+        <div id="syncOff">
+          <p class="hint" style="margin-top:0">
+            开启后手机和电脑登同一个账号，记的东西自动对齐。<br>
+            <b>数据会在你的设备和云端各存一份</b>，本地那份始终在，断网照样能记。<br>
+            云端那份是明文的——只有知道你密码的人能读，但平台运维理论上能看到。<br>
+            <b>密码忘了就进不去了，没有找回功能。</b>
+          </p>
+          <div style="margin-top:14px">
+            <input type="text" id="syncUser" placeholder="用户名（3-32 个字符，只用来定位你的数据）" autocomplete="username">
+          </div>
+          <div style="margin-top:10px">
+            <input type="password" id="syncPass" placeholder="密码（至少 8 位）" autocomplete="new-password">
+          </div>
+          <div class="row" style="margin-top:14px">
+            <button class="btn" onclick="Settings.enableSync()">开启同步</button>
+            <button class="btn ghost" onclick="Store.exportFile()">先导出备份</button>
+          </div>
+          <p class="hint">建议先导出一份备份再开——万一以后忘了密码，本地这份还在。</p>
+        </div>
+        <div id="syncOn" style="display:none">
+          <p class="hint" style="margin-top:0">账号：<b id="syncWho" class="mono"></b><br>上次同步：<span id="syncTime"></span></p>
+          <div class="row" style="margin-top:14px">
+            <button class="btn" onclick="Sync.pull(true)">立即同步</button>
+            <button class="btn ghost" onclick="Settings.changePass()">改密码</button>
+            <button class="btn ghost" onclick="Sync.disable()">关闭同步</button>
+          </div>
+          <p class="hint">
+            刚在另一台设备改的东西，这边最多等一分钟才看得到（云端缓存机制），
+            等不及就点「立即同步」。
+          </p>
+        </div>
+      </div>
+      <!-- ==== 双端同步卡片 END ==== -->
+
+      <div class="card" id="apiCard">
+        <h2>🔑 接口配置</h2>
+        <p class="hint" style="margin-top:0;margin-bottom:12px">
+          填在这里的 key 只保存在你自己的手机上，不会上传，也<b>不会被导出到备份文件里</b>。
+        </p>
+        <div style="margin-bottom:12px">
+          <label style="font-size:14px;display:block;margin-bottom:6px">AI 大模型</label>
+          <input type="password" id="key_ai" placeholder="粘贴你的 key">
+          <p class="hint">在 platform.deepseek.com 注册后，「API Keys」里创建一个</p>
+        </div>
+        <button class="btn" onclick="Settings.saveKeys()">保存</button>
+      </div>
+
+      <div class="card">
+        <h2>⚠️ 危险操作</h2>
+        <button class="btn danger" onclick="Store.wipe()">清空所有数据</button>
+        <p class="hint">清空前请确认已经导出过备份，这个操作无法撤销。</p>
+      </div>
+
+      <div class="card">
+        <p class="hint" style="margin:0;text-align:center">
+          云墨<br>
+          <span style="opacity:.6">由 不一书个人工作台生成器 生成</span>
+        </p>
+      </div>
+    </section>
+    <!-- ==== 功能：设置 END ==== -->
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   Store · 存储抽象层
+   所有数据读写都必须走这里，不要直接用 localStorage。
+
+   ── 为什么数组型数据要用 list/upsert 而不是 get/set ──
+   Store.set('money', 整个数组) 是「整本账一起覆盖」。单设备没问题，
+   一旦两台设备各自离线改过，后上传的那份会把另一份的改动无声吞掉：
+
+     手机 10 条 → 加 1 条 = 11 条，上传
+     电脑 10 条 → 加另 1 条 = 11 条，后上传 → 手机加的那条消失
+
+   所以数组型一律用 upsert / softDelete，每条带修改时间，合并时逐条比对。
+   ═══════════════════════════════════════════════════════════ */
+const Store = (() => {
+  const NS  = 'bysdash:';
+  const SEC = 'bysdash$secret:';
+  const TOMB_TTL = 30 * 864e5;   // 墓碑保留 30 天，之后清掉（那时各端早同步过了）
+
+  const driver = {
+    get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k,v){
+      try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+      catch(e){
+        // 配额超了几乎总是因为存了没压缩的图片
+        UI.toast('存储空间满了，请到设置里导出备份后清理旧数据');
+        console.error(e); return false;
+      }
+    },
+    remove(k){ localStorage.removeItem(k); },
+    keys(){ return Object.keys(localStorage); }
+  };
+
+  const now = () => Date.now();
+
+  /** 按 id 逐条合并两个列表：同 id 取修改时间更新的那条 */
+  function mergeList(a, b){
+    const m = new Map();
+    for (const it of [...(a || []), ...(b || [])]) {
+      if (!it || !it.id) continue;
+      const prev = m.get(it.id);
+      if (!prev || (it._u || 0) > (prev._u || 0)) m.set(it.id, it);
+    }
+    return [...m.values()];
+  }
+
+  const S = {
+    /* ── 单值：配置、开关、计数快照这类 ── */
+    get(key, fallback = null){
+      const v = driver.get(NS + key);
+      return v === null || v === undefined ? fallback : v;
+    },
+    set(key, val){
+      const ok = driver.set(NS + key, val);
+      if (ok) this._touch();
+      return ok;
+    },
+    remove(key){ driver.remove(NS + key); this._touch(); },
+
+    /* ── 数组型：一条一条存，可合并 ── */
+    /** 读列表：过滤掉墓碑，顺手清理过期墓碑 */
+    list(key, sort){
+      const raw = this.get(key, []);
+      if (!Array.isArray(raw)) return [];
+      const cut = now() - TOMB_TTL;
+      const alive = [], keep = [];
+      for (const it of raw) {
+        if (it && it._d) { if ((it._u || 0) > cut) keep.push(it); continue; }
+        if (it) { alive.push(it); keep.push(it); }
+      }
+      if (keep.length !== raw.length) driver.set(NS + key, keep);  // 静默清理，不算一次写
+      return sort ? alive.sort(sort) : alive;
+    },
+
+    /** 增或改一条。没有 id 就生成一个；自动打修改时间 */
+    upsert(key, item){
+      const raw = this.get(key, []);
+      const it = Object.assign({}, item);
+      if (!it.id) it.id = Util.uid();
+      it._u = now();
+      delete it._d;
+      const i = raw.findIndex(x => x && x.id === it.id);
+      if (i >= 0) raw[i] = Object.assign({}, raw[i], it); else raw.push(it);
+      this.set(key, raw);
+      return it;
+    },
+
+    /** 软删除：留一个墓碑，否则另一台设备同步回来会把它复活 */
+    softDelete(key, id){
+      const raw = this.get(key, []);
+      const i = raw.findIndex(x => x && x.id === id);
+      if (i >= 0) raw[i] = { id, _d: 1, _u: now() };
+      else raw.push({ id, _d: 1, _u: now() });
+      this.set(key, raw);
+    },
+
+    /** 计数器：存成事件列表而不是一个数字。
+        数字没法正确合并（取大值会丢、相加会重复），列表天然可以。 */
+    incr(key, n = 1){
+      const raw = this.get(key, []);
+      for (let i = 0; i < n; i++) raw.push({ id: Util.uid(), _u: now() });
+      this.set(key, raw);
+      return this.count(key);
+    },
+    decr(key){
+      const alive = this.list(key);
+      if (alive.length) this.softDelete(key, alive[alive.length - 1].id);
+      return this.count(key);
+    },
+    count(key){ return this.list(key).length; },
+
+    /* ── 按天：key 自带日期，两台设备改的是不同 key，天然不冲突 ── */
+    getDaily(key, fallback = null){ return this.get(key + ':' + Util.today(), fallback); },
+    setDaily(key, val){ return this.set(key + ':' + Util.today(), val); },
+    listDaily(key, sort){ return this.list(key + ':' + Util.today(), sort); },
+    upsertDaily(key, item){ return this.upsert(key + ':' + Util.today(), item); },
+    incrDaily(key, n = 1){ return this.incr(key + ':' + Util.today(), n); },
+    decrDaily(key){ return this.decr(key + ':' + Util.today()); },
+    countDaily(key){ return this.count(key + ':' + Util.today()); },
+
+    /* ── 敏感数据：独立命名空间，不进备份 ── */
+    getSecret(key){ return driver.get(SEC + key); },
+    setSecret(key, val){ return driver.set(SEC + key, val); },
+
+
+    /* ── 旧版数据迁移 ──
+       v1.0 生成的工作台里，体重 [{date,value}]、日记 [{date,text}]、读书 [{title,...}]
+       这类结构是没有 id 的。而合并是按 id 做的，没 id 的条目会被整个跳过——
+       也就是升级后一开同步，这些历史记录会全部消失。
+       所以启动时补一次 id。
+
+       id 必须由内容算出来（不能用随机数）：手机和电脑各自迁移同一条记录时，
+       算出的 id 要一样，否则合并后会变成两条重复。 */
+    _stableId(o){
+      const s = JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+      let h = 0;
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+      return 'm' + (h >>> 0).toString(36);
+    },
+
+    migrate(){
+      if (this.get('_migrated')) return 0;
+      let n = 0;
+      driver.keys().filter(k => k.startsWith(NS)).forEach(k => {
+        const v = driver.get(k);
+        if (!Array.isArray(v) || !v.length) return;
+        let touched = false;
+        const fixed = v.map(it => {
+          if (!it || typeof it !== 'object') return it;
+          const o = Object.assign({}, it);
+          if (!o.id) { o.id = this._stableId(it); touched = true; }
+          if (!o._u) { o._u = 1; touched = true; }   // 标成很早，新改动永远胜出
+          return o;
+        });
+        if (touched) { driver.set(k, fixed); n++; }
+      });
+      this.set('_migrated', Date.now());
+      if (n) console.info(`[迁移] 已为 ${n} 组历史数据补齐标识，一条没少`);
+      return n;
+    },
+
+    /* ── 供云同步用 ── */
+    _touch(){
+      driver.set(NS + '_lastWrite', now());
+      if (typeof Sync !== 'undefined' && Sync.on && Sync.on()) Sync.schedule();
+    },
+    mergeList,
+    /** 把远端整包数据合并进本地。数组型逐条合并，单值取时间新的 */
+    mergeRemote(remote){
+      if (!remote || typeof remote !== 'object') return 0;
+      let changed = 0;
+      for (const [key, rv] of Object.entries(remote)) {
+        if (key.startsWith('_')) continue;
+        const lv = this.get(key, null);
+        if (Array.isArray(rv)) {
+          const merged = mergeList(Array.isArray(lv) ? lv : [], rv);
+          if (JSON.stringify(merged) !== JSON.stringify(lv)) { driver.set(NS + key, merged); changed++; }
+        } else if (lv === null || lv === undefined) {
+          driver.set(NS + key, rv); changed++;
+        }
+        // 单值且两边都有：保守起来保留本地，避免远端旧值覆盖刚改的设置
+      }
+      return changed;
+    },
+    /** 导出给云端或备份用的整包（不含 secret） */
+    dump(){
+      const data = {};
+      driver.keys().filter(k => k.startsWith(NS)).forEach(k => {
+        data[k.slice(NS.length)] = driver.get(k);
+      });
+      return data;
+    },
+
+    /* ── 备份 ── */
+    exportAll(){
+      return { app:'云墨', version:2, exportedAt:new Date().toISOString(), data:this.dump() };
+    },
+
+    exportFile(){
+      const blob = new Blob([JSON.stringify(this.exportAll(), null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '云墨备份-' + Util.today() + '.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      this.set('_lastBackup', now());
+      UI.toast('已导出，建议转发到微信文件传输助手存一份');
+      Settings.refreshBackupInfo();
+    },
+
+    importFile(input){
+      const f = input.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = e => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.data) throw new Error('格式不对');
+          if (!confirm('恢复备份会与当前数据合并，确定吗？')) return;
+          // 用合并而不是覆盖：万一用户导入的是旧备份，现有数据不会被抹掉
+          const n = this.mergeRemote(parsed.data);
+          Object.entries(parsed.data).forEach(([k,v]) => {
+            if (!Array.isArray(v) && this.get(k, null) === null) driver.set(NS + k, v);
+          });
+          UI.toast('已合并 ' + n + ' 项，正在重新加载');
+          setTimeout(() => location.reload(), 900);
+        } catch(err){ UI.toast('文件读不了，可能不是备份文件'); }
+      };
+      r.readAsText(f);
+      input.value = '';
+    },
+
+    wipe(){
+      if (!confirm('确定清空所有数据？这个操作无法撤销。')) return;
+      if (!confirm('再确认一次：真的要清空吗？')) return;
+      driver.keys().filter(k => k.startsWith(NS)).forEach(k => driver.remove(k));
+      location.reload();
+    }
+  };
+  return S;
+})();
+
+
+/* ═══════════════════════════════════════════════════════════
+   Util · 工具
+   ═══════════════════════════════════════════════════════════ */
+const Util = {
+  today(){
+    const d = new Date();
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+  },
+  uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); },
+  dateOf(d){
+    return d.getFullYear() + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getDate()).padStart(2,'0');
+  },
+  esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+
+  // 图片必须压缩后再存，否则几张手机原图就撑爆 localStorage
+  compressImage(file, maxW = 800, quality = .72){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const cv = document.createElement('canvas');
+        cv.width  = img.width  * scale;
+        cv.height = img.height * scale;
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        resolve(cv.toDataURL('image/jpeg', quality));
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════
+   UI · 界面工具
+   ═══════════════════════════════════════════════════════════ */
+const UI = {
+  toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(this._t);
+    this._t = setTimeout(() => t.classList.remove('on'), 2200);
+  },
+  banner(html, pageId = null){
+    const box = document.createElement('div');
+    box.className = 'banner';
+    box.innerHTML = html;
+    const target = pageId ? document.getElementById(pageId) : document.querySelector('.page.on');
+    target?.prepend(box);
+    return box;
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════
+   App · 路由与启动
+   每加一个功能，在 routes 里加一条，侧边栏自动就有了。
+   ═══════════════════════════════════════════════════════════ */
+const App = {
+  routes: [
+    { id:'plan',    icon:'📅', name:'计划',    onShow: () => Plan.render() },
+    { id:'ailearn', icon:'📝', name:'AI学习',  onShow: () => AiLearn.render() },
+    { id:'timer',   icon:'🎯', name:'计时',    onShow: () => Timer.render() },
+    { id:'errors',  icon:'❌', name:'错题',    onShow: () => Errors.render() },
+    { id:'chat',    icon:'🤖', name:'陪练',    onShow: () => Chat.render() },
+    { id:'recap',   icon:'📊', name:'复盘',    onShow: () => Recap.render() },
+    { id:'settings',icon:'⚙️', name:'设置',    onShow: () => Settings.render() }
+  ],
+
+  go(id){
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+    document.getElementById('page-' + id)?.classList.add('on');
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.classList.toggle('on', b.dataset.id === id));
+    document.getElementById('main').scrollTop = 0;
+    Store.set('_lastPage', id);
+    this.routes.find(r => r.id === id)?.onShow?.();
+  },
+
+  init(){
+    Store.migrate();          // 旧版数据补齐 id，无感升级
+    // 渲染侧边栏
+    document.getElementById('nav').innerHTML = this.routes.map(r =>
+      `<button data-id="${r.id}" onclick="App.go('${r.id}')">
+         <span class="ico">${r.icon}</span>${r.name}
+       </button>`).join('');
+
+    // 回到上次看的那一页
+    const last = Store.get('_lastPage');
+    this.go(this.routes.some(r => r.id === last) ? last : this.routes[0].id);
+
+    this.checkBackup();
+    if (typeof Sync !== 'undefined') Sync.init();
+  },
+
+  /** 重绘当前页。同步拉到新数据后调用 */
+  refresh(){
+    const cur = document.querySelector('.page.on');
+    if (!cur) return;
+    const id = cur.id.replace('page-', '');
+    this.routes.find(r => r.id === id)?.onShow?.();
+  },
+
+  // 用户永远不会主动点导出，所以要主动提醒
+  checkBackup(){
+    const last = Store.get('_lastBackup');
+    const write = Store.get('_lastWrite');
+    if (!write) return;                                  // 还没存过东西，不用提醒
+    const days = last ? (Date.now() - last) / 864e5 : 99;
+    if (days < 7) return;
+    const b = UI.banner(
+      `<span>${last ? '已经 ' + Math.floor(days) + ' 天没备份了' : '记得备份一下，数据只在这台手机上'}</span>
+       <button onclick="App.go('settings')">去备份</button>`);
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════
+   Settings · 设置页
+   ═══════════════════════════════════════════════════════════ */
+const Settings = {
+  keys: ['ai'],
+
+  render(){
+    this.refreshBackupInfo();
+    this.renderSync();
+    this.keys.forEach(k => {
+      const el = document.getElementById('key_' + k);
+      if (el) el.value = Store.getSecret(k) || '';
+    });
+    if (!this.keys.length) document.getElementById('apiCard')?.remove();
+  },
+
+  enableSync(){
+    Sync.enable(document.getElementById('syncUser').value,
+                document.getElementById('syncPass').value);
+  },
+
+  changePass(){
+    const np = prompt('输入新密码（至少 8 位）');
+    if (np) Sync.changePass(np);
+  },
+
+  renderSync(){
+    const card = document.getElementById('syncCard');
+    if (!card || typeof Sync === 'undefined') return;
+    const on = Sync.on();
+    document.getElementById('syncOff').style.display = on ? 'none' : 'block';
+    document.getElementById('syncOn').style.display  = on ? 'block' : 'none';
+    if (on) {
+      document.getElementById('syncWho').textContent = Sync.cfg().user;
+      const t = Store.get('_syncAt');
+      document.getElementById('syncTime').textContent =
+        t ? new Date(t).toLocaleString('zh-CN') : '还没同步过';
+    }
+  },
+
+  saveKeys(){
+    this.keys.forEach(k => {
+      const el = document.getElementById('key_' + k);
+      if (el) Store.setSecret(k, el.value.trim());
+    });
+    UI.toast('已保存');
+  },
+
+  refreshBackupInfo(){
+    const last = Store.get('_lastBackup');
+    const el = document.getElementById('backupInfo');
+    if (el) el.textContent = last
+      ? '上次备份：' + new Date(last).toLocaleDateString('zh-CN')
+      : '还没备份过';
+  }
+};
+
+
+/* ==== 双端同步 START ====
+   用户选「只在一台设备用」时，把这整段（以及设置页里的 syncCard）删掉。
+
+   三条设计红线，破了就会烧掉免费额度或者丢数据：
+   1. 本地优先 —— 写入永远先落 localStorage，界面立刻变。云端是异步的。
+      断网、KV 抽风、额度用完，工作台照常能用，只是不同步。
+   2. 绝不轮询 —— 只在「打开时 / 切回前台 / 手动刷新」拉取。
+      每 30 秒轮一次的话，一台设备一个月就是 8 万多次函数调用。
+   3. 推送防抖 —— 改动后等 4 秒再推，把连续操作合并成一次请求。
+      勾 10 个待办应该是 1 次调用，不是 10 次。 */
+const Sync = {
+  DEBOUNCE: 4000,
+  _timer: null,
+  _busy: false,
+
+  cfg(){ return Store.get('_sync', { on:false, user:'' }); },
+  on(){ return !!this.cfg().on; },
+  pass(){ return Store.getSecret('syncPass') || ''; },
+
+  async call(action, extra = {}){
+    const c = this.cfg();
+    const r = await fetch('/api/sync', {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify(Object.assign({ action, user:c.user, pass:this.pass() }, extra))
+    });
+    const j = await r.json().catch(() => ({ error:'返回格式不对' }));
+    if (!r.ok) throw new Error(j.error || ('请求失败 ' + r.status));
+    return j;
+  },
+
+  /** 开启同步：首次会把这个用户名注册下来 */
+  async enable(user, pass){
+    user = (user || '').trim().toLowerCase();
+    if (user.length < 3) return UI.toast('用户名至少 3 个字符');
+    if ((pass || '').length < 8) return UI.toast('密码至少 8 位');
+    Store.set('_sync', { on:true, user });
+    Store.setSecret('syncPass', pass);
+    try {
+      const j = await this.call('push', { data: Store.dump() });   // push 兼注册
+      if (j.data) Store.mergeRemote(j.data);
+      Store.set('_syncAt', Date.now());
+      UI.toast(j.created ? '同步已开启' : '已连上，数据已合并');
+      setTimeout(() => location.reload(), 900);
+    } catch(e){
+      Store.set('_sync', { on:false, user:'' });
+      Store.setSecret('syncPass', '');
+      UI.toast(e.message);
+    }
+  },
+
+  disable(){
+    if (!confirm('关闭同步？本地数据一条不会少，只是不再和云端对齐。')) return;
+    Store.set('_sync', { on:false, user:'' });
+    Store.setSecret('syncPass', '');
+    UI.toast('已关闭同步');
+    Settings.render();
+  },
+
+  async changePass(np){
+    if ((np || '').length < 8) return UI.toast('新密码至少 8 位');
+    try {
+      await this.call('chpass', { newPass: np });
+      Store.setSecret('syncPass', np);
+      UI.toast('密码已改');
+    } catch(e){ UI.toast(e.message); }
+  },
+
+  /** 拉取并合并。失败一律静默降级——本地数据才是主的 */
+  async pull(loud){
+    if (!this.on() || this._busy) return;
+    this._busy = true;
+    this.status('同步中');
+    try {
+      const j = await this.call('pull');
+      const n = Store.mergeRemote(j.data || {});
+      Store.set('_syncAt', Date.now());
+      this.status('已同步');
+      if (n) { if (loud) UI.toast('拉到 ' + n + ' 处更新'); App.refresh(); }
+      else if (loud) UI.toast('已是最新');
+    } catch(e){
+      this.status('未同步');
+      if (loud) UI.toast(e.message.includes('NO_ACCOUNT') ? '云端还没有数据' : e.message);
+    } finally { this._busy = false; }
+  },
+
+  /** 改动后延迟推送，把连续操作合并成一次 */
+  schedule(){
+    if (!this.on()) return;
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.push(), this.DEBOUNCE);
+  },
+
+  async push(){
+    if (!this.on() || this._busy) return;
+    this._busy = true;
+    this.status('同步中');
+    try {
+      const j = await this.call('push', { data: Store.dump() });
+      if (j.data) Store.mergeRemote(j.data);
+      Store.set('_syncAt', Date.now());
+      this.status('已同步');
+    } catch(e){
+      this.status('未同步');
+      console.warn('同步失败，本地数据不受影响：', e.message);
+    } finally { this._busy = false; }
+  },
+
+  status(t){
+    const el = document.getElementById('syncState');
+    if (el) el.textContent = t;
+  },
+
+  init(){
+    if (!this.on()) return;
+    this.pull();                                   // 打开时拉一次
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.pull();           // 切回前台再拉一次。到此为止，不轮询
+    });
+    window.addEventListener('online', () => this.push());
+  }
+};
+/* ==== 双端同步 END ==== */
+
+
+/* ==== 功能：周复盘 START ====
+   这是默认功能，别删。它的作用不只是「看数据」——
+   人不会分享自己的待办列表，但会分享「我连续记录了 100 天」。
+   一张能存下来的图卡，传播效率比界面好看高一个量级。 */
+const Recap = {
+  /** 把本周数据汇总成几个数字。功能不同就改这里，其余不用动 */
+  collect(){
+    const days = [], today = new Date();
+    const dow = (today.getDay() + 6) % 7;               // 周一为一周之始
+    for (let i = 0; i < 7; i++){
+      const d = new Date(today); d.setDate(today.getDate() - dow + i);
+      days.push(Util.dateOf(d));
+    }
+    const done = days.reduce((s,d) => s + Store.count('recap_done:' + d), 0);
+    const streak = Store.get('_streak', 0);
+    return { days, done, streak, from: days[0], to: days[6] };
+  },
+
+  render(){
+    const r = this.collect();
+    const el = document.getElementById('recapBody');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="hero num">${r.done}<span class="unit">件事做完了</span></div>
+      <p class="hint">${r.from} 到 ${r.to} · 连续记录 ${r.streak} 天</p>`;
+  },
+
+  /** 画一张 1080×1350 的图卡，取当前主题色，右下角轻署名 */
+  async makeCard(){
+    const r = this.collect();
+    const cs = getComputedStyle(document.documentElement);
+    const v = n => cs.getPropertyValue(n).trim();
+    const W = 1080, H = 1350, cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const font = (sz, w) => `${w||400} ${sz}px -apple-system,"PingFang SC",system-ui,sans-serif`;
+
+    g.fillStyle = v('--bg') || '#f5f2ec'; g.fillRect(0,0,W,H);
+    g.fillStyle = v('--card') || '#fff';
+    const pad = 72, cw = W - pad*2;
+    if (g.roundRect){ g.beginPath(); g.roundRect(pad, 180, cw, 900, 40); g.fill(); }
+    else g.fillRect(pad, 180, cw, 900);
+
+    g.fillStyle = v('--accent') || '#c47a5a';
+    g.font = font(30, 500);
+    g.fillText('这一周', pad + 56, 300);
+
+    g.fillStyle = v('--text') || '#222';
+    g.font = font(190, 500);
+    g.fillText(String(r.done), pad + 56, 480);
+    g.font = font(38);
+    g.fillStyle = v('--text-dim') || '#888';
+    g.fillText('件事做完了', pad + 56 + g.measureText(String(r.done)).width + 210, 480);
+
+    g.font = font(34);
+    g.fillText(`${r.from}  —  ${r.to}`, pad + 56, 560);
+
+    // 七日方块
+    const bw = 96, gap = 24, y = 660;
+    for (let i = 0; i < 7; i++){
+      const n = Store.count('recap_done:' + r.days[i]);
+      g.fillStyle = n ? (v('--accent') || '#c47a5a') : (v('--line') || '#e5e5e5');
+      g.globalAlpha = n ? Math.min(1, 0.35 + n * 0.18) : 1;
+      const x = pad + 56 + i * (bw + gap);
+      if (g.roundRect){ g.beginPath(); g.roundRect(x, y, bw, bw, 26); g.fill(); }
+      else g.fillRect(x, y, bw, bw);
+      g.globalAlpha = 1;
+      g.fillStyle = v('--text-dim') || '#888';
+      g.font = font(28);
+      g.fillText('一二三四五六日'[i], x + bw/2 - 14, y + bw + 48);
+    }
+
+    g.fillStyle = v('--text') || '#222';
+    g.font = font(46, 500);
+    g.fillText(`连续记录 ${r.streak} 天`, pad + 56, 900);
+
+    g.fillStyle = v('--text-dim') || '#999';
+    g.font = font(26);
+    g.fillText('云墨', pad + 56, 1010);
+    g.font = font(22);
+    g.fillText('由 不一书个人工作台生成器 生成', pad + 56, 1046);
+
+    // 导出。iOS 上 download 属性时常无效，所以失败就退回新窗口打开让用户长按保存
+    cv.toBlob(b => {
+      const url = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = url; a.download = `这一周-${r.to}.png`;
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        UI.toast('图卡已保存到下载目录');
+      }, 800);
+    }, 'image/png');
+  }
+};
+/* ==== 功能：周复盘 END ==== */
+
+
+/* ═══════════════════════════════════════════════════════════
+   Ai · AI 调用公共助手
+   联网功能共用此模块，key 走 Store.getSecret('ai')。
+   ═══════════════════════════════════════════════════════════ */
+const Ai = {
+  async chat(messages){
+    const key = Store.getSecret('ai');
+    if (!key) return { error: 'no_key' };
+    try {
+      const r = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: messages
+        })
+      });
+      const j = await r.json();
+      if (!r.ok) return { error: j.error?.message || ('请求失败 ' + r.status) };
+      return { text: j.choices?.[0]?.message?.content || '' };
+    } catch(e) {
+      return { error: e.message || '网络异常' };
+    }
+  }
+};
+
+
+/* ==== 功能：学习计划 START ==== */
+const Plan = {
+  subjects: ['英语', '数学', '政治', 'C语言'],
+  filter: '全部',
+
+  render(){
+    const tasks = Store.listDaily('plan_tasks');
+    const tagsEl = document.getElementById('planTags');
+    const listEl = document.getElementById('planList');
+    if (!tagsEl) return;
+
+    const all = ['全部', ...this.subjects];
+    tagsEl.innerHTML = all.map(s =>
+      `<button class="tag ${s===this.filter?'on':''}" onclick="Plan.setFilter('${s}')">${s}</button>`
+    ).join('');
+
+    const shown = this.filter === '全部' ? tasks : tasks.filter(t => t.subject === this.filter);
+    listEl.innerHTML = shown.length ? shown.map(t => `
+      <div class="item ${t.done?'done':''}">
+        <button class="box" onclick="Plan.toggle('${t.id}')">${t.done?'✓':''}</button>
+        <span class="grow">
+          <b style="font-size:12px;color:var(--text-dim)">[${Util.esc(t.subject)}]</b>
+          ${Util.esc(t.text)}
+        </span>
+        <button class="del" onclick="Plan.del('${t.id}')">✕</button>
+      </div>
+    `).join('') : '<div class="empty">今天还没有任务，添加一个开始吧</div>';
+  },
+
+  setFilter(s){ this.filter = s; this.render(); },
+
+  add(){
+    const inp = document.getElementById('planInput');
+    const subj = document.getElementById('planSubject').value;
+    const text = inp.value.trim();
+    if (!text) return;
+    Store.upsertDaily('plan_tasks', { subject: subj, text, done: false });
+    inp.value = '';
+    this.render();
+  },
+
+  toggle(id){
+    const tasks = Store.listDaily('plan_tasks');
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    Store.upsertDaily('plan_tasks', { id: t.id, subject: t.subject, text: t.text, done: !t.done });
+    this.render();
+  },
+
+  del(id){
+    Store.softDelete('plan_tasks:' + Util.today(), id);
+    this.render();
+  }
+};
+/* ==== 功能：学习计划 END ==== */
+
+
+/* ==== 功能：AI学习助手 START ==== */
+const AiLearn = {
+  clipFilter: '全部',
+
+  SENTENCES: [
+    {en:'The proliferation of social media has fundamentally altered the way people interact with one another.',
+     zh:'社交媒体的激增从根本上改变了人们相互交流的方式。',
+     kp:'proliferation（激增）；fundamentally altered（从根本上改变）；the way + 定语从句'},
+    {en:'Governments should allocate more resources to renewable energy to mitigate climate change.',
+     zh:'政府应当将更多资源分配给可再生能源，以缓解气候变化。',
+     kp:'allocate resources to（将资源分配给）；mitigate（缓解）；不定式表目的'},
+    {en:'It is widely acknowledged that education plays a pivotal role in shaping a person\'s future.',
+     zh:'人们普遍认为，教育在塑造个人未来方面起着关键作用。',
+     kp:'It is widely acknowledged that（普遍认为）；play a pivotal role in（起关键作用）'},
+    {en:'The disparity between urban and rural areas continues to widen in many developing countries.',
+     zh:'在许多发展中国家，城乡差距持续扩大。',
+     kp:'disparity（差距）；continue to widen（持续扩大）；developing countries（发展中国家）'},
+    {en:'Many argue that globalization has led to the homogenization of cultures around the world.',
+     zh:'许多人认为，全球化导致了世界范围内文化的同质化。',
+     kp:'argue that（认为）；homogenization（同质化）；lead to（导致）'},
+    {en:'The implementation of stricter regulations has significantly curbed industrial pollution.',
+     zh:'更严格法规的实施显著遏制了工业污染。',
+     kp:'implementation（实施）；curb（遏制）；significantly（显著地）'},
+    {en:'It is imperative that we address the issue of overpopulation before it spirals out of control.',
+     zh:'我们必须在人口问题失控前加以解决。',
+     kp:'It is imperative that + 虚拟语气（必须）；spiral out of control（失控）'},
+    {en:'Technological advancements have rendered many traditional jobs obsolete.',
+     zh:'技术进步已使许多传统工作变得过时。',
+     kp:'render + 宾语 + 形容词（使…变得）；obsolete（过时的）；完成时态'},
+    {en:'The curriculum should be revamped to better prepare students for the demands of the modern workplace.',
+     zh:'课程体系应当被改革，以更好地让学生为现代职场的需求做好准备。',
+     kp:'revamp（改革）；被动语态；prepare sb for sth（使某人为…做准备）'},
+    {en:'Critics contend that excessive screen time impairs children\'s cognitive development.',
+     zh:'批评者认为，过多的屏幕时间会损害儿童的认知发展。',
+     kp:'contend that（主张）；excessive（过度的）；impair（损害）'},
+    {en:'The government\'s failure to tackle housing affordability has sparked widespread public outcry.',
+     zh:'政府未能解决住房可负担性问题，引发了广泛的公众抗议。',
+     kp:'failure to do（未能做）；spark（引发）；outcry（抗议/强烈反应）'},
+    {en:'Renewable energy sources, such as solar and wind power, are gaining traction globally.',
+     zh:'太阳能和风能等可再生能源在全球范围内正获得关注。',
+     kp:'such as（列举）；gain traction（获得发展势头/关注）；globally（全球地）'},
+    {en:'There is a growing consensus that early childhood education yields long-term benefits.',
+     zh:'人们日益达成共识：早期儿童教育能产生长期效益。',
+     kp:'growing consensus（日益增强的共识）；yield benefits（产生效益）；long-term（长期的）'},
+    {en:'The advent of artificial intelligence has revolutionized numerous industries.',
+     zh:'人工智能的出现彻底改变了众多行业。',
+     kp:'advent（出现/到来）；revolutionize（彻底改变）；numerous（众多的）'},
+    {en:'Environmental degradation poses a grave threat to future generations.',
+     zh:'环境退化对未来几代人构成严重威胁。',
+     kp:'degradation（退化）；pose a threat to（对…构成威胁）；grave（严重的）'},
+    {en:'Many indigenous languages are on the verge of extinction due to cultural assimilation.',
+     zh:'由于文化同化，许多土著语言濒临灭绝。',
+     kp:'on the verge of（濒临）；extinction（灭绝）；assimilation（同化）'},
+    {en:'The proliferation of fast food outlets has been linked to rising obesity rates.',
+     zh:'快餐店的激增与日益上升的肥胖率有关联。',
+     kp:'be linked to（与…有关联）；rising rates（上升的比率）； proliferation（激增）'},
+    {en:'It is often argued that economic growth should not come at the expense of environmental sustainability.',
+     zh:'人们常认为，经济增长不应以牺牲环境可持续性为代价。',
+     kp:'It is argued that（有人认为）；come at the expense of（以…为代价）'},
+    {en:'The disparity in income distribution has fueled social unrest in many regions.',
+     zh:'收入分配的不均加剧了许多地区的社会动荡。',
+     kp:'disparity（差距）；fuel（加剧/助长）；social unrest（社会动荡）'},
+    {en:'Advances in medical technology have prolonged life expectancy considerably.',
+     zh:'医疗技术的进步大幅延长了预期寿命。',
+     kp:'advances in（…的进步）；prolong（延长）；considerably（大幅地）'},
+    {en:'The government has implemented a series of measures to stimulate economic recovery.',
+     zh:'政府已实施一系列措施以刺激经济复苏。',
+     kp:'implement measures（实施措施）；stimulate（刺激）；a series of（一系列）'},
+    {en:'Many educators advocate for a more holistic approach to student assessment.',
+     zh:'许多教育者主张采用更全面的方法来评估学生。',
+     kp:'advocate for（主张）；holistic approach（全面的方法）；assessment（评估）'},
+    {en:'The erosion of traditional values is often cited as a consequence of rapid modernization.',
+     zh:'传统价值观的侵蚀常被引为快速现代化的后果。',
+     kp:'erosion（侵蚀）；be cited as（被引为）；consequence（后果）'},
+    {en:'Urban sprawl has led to the destruction of many natural habitats.',
+     zh:'城市蔓延导致了许多自然栖息地的破坏。',
+     kp:'urban sprawl（城市蔓延）；lead to（导致）；habitat（栖息地）'},
+    {en:'There is mounting evidence that sedentary lifestyles contribute to chronic diseases.',
+     zh:'越来越多的证据表明，久坐的生活方式会导致慢性疾病。',
+     kp:'mounting evidence（越来越多的证据）；sedentary（久坐的）；contribute to（导致）'},
+    {en:'The integration of technology into classrooms has both proponents and detractors.',
+     zh:'将技术融入课堂既有支持者也有反对者。',
+     kp:'integration into（融入）；proponents（支持者）；detractors（反对者）'},
+    {en:'Many countries are grappling with the challenges posed by an aging population.',
+     zh:'许多国家正努力应对人口老龄化带来的挑战。',
+     kp:'grapple with（努力应对）；pose challenges（带来挑战）；aging population（人口老龄化）'},
+    {en:'The preservation of cultural heritage is essential for maintaining national identity.',
+     zh:'文化遗产的保护对于维护民族认同感至关重要。',
+     kp:'preservation（保护）；be essential for（对…至关重要）；national identity（民族认同感）'},
+    {en:'Critics argue that standardized testing stifles creativity in students.',
+     zh:'批评者认为，标准化考试抑制了学生的创造力。',
+     kp:'standardized testing（标准化考试）；stifle（抑制/扼杀）；creativity（创造力）'},
+    {en:'The rise of the gig economy has transformed traditional employment patterns.',
+     zh:'零工经济的兴起改变了传统的就业模式。',
+     kp:'gig economy（零工经济）；transform（改变）；employment patterns（就业模式）'},
+    {en:'It is contended that mass tourism has adverse effects on local communities.',
+     zh:'有人主张，大众旅游对当地社区产生不利影响。',
+     kp:'It is contended that（有人主张）；adverse effects（不利影响）；mass tourism（大众旅游）'},
+    {en:'The government should take decisive action to combat the rising tide of juvenile delinquency.',
+     zh:'政府应采取果断行动来遏制日益上升的青少年犯罪浪潮。',
+     kp:'decisive action（果断行动）；combat（打击/对抗）；juvenile delinquency（青少年犯罪）'},
+    {en:'Many argue that the benefits of nuclear energy outweigh its potential risks.',
+     zh:'许多人认为，核能的益处大于其潜在风险。',
+     kp:'outweigh（大于/超过）；potential risks（潜在风险）；benefits（益处）'},
+    {en:'The phenomenon of brain drain poses a significant challenge to developing nations.',
+     zh:'人才流失现象对发展中国家构成重大挑战。',
+     kp:'phenomenon（现象）；brain drain（人才流失）；pose a challenge to（对…构成挑战）'},
+    {en:'There has been a marked shift towards online shopping in recent years.',
+     zh:'近年来，网上购物出现了明显的转变。',
+     kp:'marked shift（明显的转变）；towards（朝向）；in recent years（近年来）'},
+    {en:'The acquisition of a second language enhances cognitive abilities in numerous ways.',
+     zh:'第二语言的习得以多种方式增强认知能力。',
+     kp:'acquisition（习得）；enhance（增强）；cognitive abilities（认知能力）'},
+    {en:'Many experts attribute the decline in reading habits to the ubiquity of digital entertainment.',
+     zh:'许多专家将阅读习惯的下降归因于数字娱乐的普遍存在。',
+     kp:'attribute … to（将…归因于）；ubiquity（普遍存在）；decline（下降）'},
+    {en:'The government\'s initiative to promote green energy has garnered widespread support.',
+     zh:'政府推广绿色能源的倡议获得了广泛支持。',
+     kp:'initiative（倡议）；promote（推广）；garner support（获得支持）'},
+    {en:'It is undeniable that technological innovations have improved our quality of life.',
+     zh:'不可否认，技术创新改善了我们的生活质量。',
+     kp:'It is undeniable that（不可否认）；innovation（创新）；quality of life（生活质量）'},
+    {en:'The widening gap between the rich and the poor is a pressing concern for policymakers.',
+     zh:'贫富差距不断扩大是决策者面临的一项紧迫问题。',
+     kp:'widening gap（不断扩大的差距）；pressing concern（紧迫问题）；policymaker（决策者）'},
+    {en:'Many sociologists attribute the rise in mental health issues to mounting academic pressure.',
+     zh:'许多社会学家将心理健康问题的增加归因于日益增加的学业压力。',
+     kp:'attribute … to（将…归因于）；mounting pressure（不断增加的压力）'},
+    {en:'The transition to a low-carbon economy requires substantial investment in green technologies.',
+     zh:'向低碳经济过渡需要在绿色技术上进行大量投资。',
+     kp:'transition to（向…过渡）；substantial（大量的）；investment in（在…上的投资）'},
+    {en:'It is often asserted that cultural diversity enriches a society in profound ways.',
+     zh:'人们常断言，文化多样性以深刻的方式丰富了一个社会。',
+     kp:'It is asserted that（断言）；diversity（多样性）；in profound ways（以深刻的方式）'},
+    {en:'The prevalence of fake news has undermined public trust in the media.',
+     zh:'假新闻的盛行削弱了公众对媒体的信任。',
+     kp:'prevalence（盛行）；undermine（削弱/破坏）；trust in（对…的信任）'},
+    {en:'Many environmentalists contend that economic development and ecological preservation are not mutually exclusive.',
+     zh:'许多环保主义者认为，经济发展与生态保护并非互不相容。',
+     kp:'contend that（主张）；mutually exclusive（互不相容的）；ecological preservation（生态保护）'},
+    {en:'The proliferation of online courses has democratized access to higher education.',
+     zh:'在线课程的激增使接受高等教育的机会得以普及。',
+     kp:'proliferation（激增）；democratize（使普及化）；access to（获得…的机会）'},
+    {en:'There is a pressing need to address the root causes of poverty rather than its symptoms.',
+     zh:'迫切需要解决贫困的根本原因，而非其表象。',
+     kp:'pressing need（迫切需要）；root causes（根本原因）；rather than（而非）'},
+    {en:'The decline of manufacturing has had a profound impact on many industrial cities.',
+     zh:'制造业的衰退对许多工业城市产生了深远影响。',
+     kp:'decline（衰退）；have a profound impact on（对…产生深远影响）'},
+    {en:'Many argue that the arts play an indispensable role in a well-rounded education.',
+     zh:'许多人认为，艺术在全面教育中起着不可或缺的作用。',
+     kp:'indispensable（不可或缺的）；well-rounded（全面的）；play a role in（在…中起作用）'},
+    {en:'The rapid pace of urbanization has placed immense strain on infrastructure.',
+     zh:'快速的城市化进程给基础设施带来了巨大压力。',
+     kp:'pace of（…的速度）；place strain on（给…带来压力）；immense（巨大的）'},
+    {en:'It is widely believed that early intervention can mitigate the effects of learning disabilities.',
+     zh:'人们普遍认为，早期干预可以减轻学习障碍的影响。',
+     kp:'It is widely believed that（普遍认为）；intervention（干预）；mitigate（减轻）'},
+    {en:'The proliferation of single-use plastics has exacerbated the problem of ocean pollution.',
+     zh:'一次性塑料制品的激增加剧了海洋污染问题。',
+     kp:'single-use（一次性的）；exacerbate（加剧）；proliferation（激增）'},
+    {en:'Many economists attribute the recession to a combination of factors, both domestic and international.',
+     zh:'许多经济学家将经济衰退归因于国内外多种因素的综合作用。',
+     kp:'attribute … to（归因于）；a combination of（…的组合）；recession（衰退）'},
+    {en:'The government\'s commitment to reducing carbon emissions has been hailed as a step in the right direction.',
+     zh:'政府对减少碳排放的承诺被誉为朝着正确方向迈出的一步。',
+     kp:'commitment to（对…的承诺）；be hailed as（被誉为）；carbon emissions（碳排放）'},
+    {en:'There is growing concern that artificial intelligence may render certain professions obsolete.',
+     zh:'人们越来越担心，人工智能可能使某些职业变得过时。',
+     kp:'growing concern（日益增长的担忧）；render … obsolete（使…过时）；profession（职业）'},
+    {en:'The assimilation of immigrants into host societies remains a complex and contentious issue.',
+     zh:'移民融入东道主社会仍然是一个复杂且有争议的问题。',
+     kp:'assimilation into（融入）；contentious（有争议的）；host society（东道主社会）'},
+    {en:'Many educators emphasize the importance of fostering critical thinking skills in students.',
+     zh:'许多教育者强调培养学生批判性思维能力的重要性。',
+     kp:'emphasize（强调）；foster（培养）；critical thinking（批判性思维）'},
+    {en:'The depletion of natural resources necessitates a shift towards sustainable practices.',
+     zh:'自然资源的枯竭需要转向可持续的做法。',
+     kp:'depletion（枯竭）；necessitate（使…成为必要）；shift towards（转向）'},
+    {en:'It is argued that the privatization of public services often leads to disparities in quality.',
+     zh:'有人认为，公共服务的私有化往往导致质量上的差距。',
+     kp:'It is argued that（有人认为）；privatization（私有化）；disparity（差距）'},
+    {en:'The resurgence of interest in traditional crafts reflects a broader desire for authenticity.',
+     zh:'对传统手工艺兴趣的复苏反映了人们对真实性的更广泛渴望。',
+     kp:'resurgence（复苏/复兴）；reflect（反映）；authenticity（真实性）'}
+  ],
+
+  render(){
+    this.renderSentence();
+    this.renderClips();
+  },
+
+  renderSentence(){
+    const epoch = new Date('2025-01-01T00:00:00');
+    const days = Math.floor((Date.now() - epoch.getTime()) / 86400000);
+    const idx = ((days % this.SENTENCES.length) + this.SENTENCES.length) % this.SENTENCES.length;
+    const s = this.SENTENCES[idx];
+    const el = document.getElementById('dailySentence');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="sentence">${Util.esc(s.en)}</div>
+      <div class="translation">${Util.esc(s.zh)}</div>
+      <div class="kpoint">${Util.esc(s.kp)}</div>
+      <p class="hint" style="text-align:right">第 ${idx + 1}/${this.SENTENCES.length} 天</p>
+    `;
+  },
+
+  async classify(){
+    const inp = document.getElementById('clipInput');
+    const text = inp.value.trim();
+    if (!text) return;
+    const key = Store.getSecret('ai');
+    if (!key) {
+      UI.toast('请先在设置里配置 AI Key');
+      return;
+    }
+    const btn = document.getElementById('clipBtn');
+    btn.textContent = '归类中…';
+    btn.disabled = true;
+
+    const res = await Ai.chat([
+      { role: 'system', content: '请把用户输入的内容归类到最合适的一个类别，只回复类别名（不要标点、不要解释、不要多余文字）。类别选项：知识点、易错点、灵感、好句、其他。' },
+      { role: 'user', content: text }
+    ]);
+
+    btn.textContent = '归类';
+    btn.disabled = false;
+
+    if (res.error) {
+      if (res.error === 'no_key') { UI.toast('请先配置 AI Key'); return; }
+      UI.toast('归类失败：' + res.error);
+      return;
+    }
+
+    let category = (res.text || '').trim().replace(/[。.!！\s]/g, '');
+    const valid = ['知识点','易错点','灵感','好句','其他'];
+    if (!valid.includes(category)) category = '其他';
+
+    Store.upsert('clips', { text, category });
+    inp.value = '';
+    UI.toast('已归类并保存：' + category);
+    this.renderClips();
+  },
+
+  renderClips(){
+    const clips = Store.list('clips', (a,b) => (b._u||0) - (a._u||0));
+    const tagsEl = document.getElementById('clipTags');
+    const listEl = document.getElementById('clipList');
+    if (!tagsEl) return;
+
+    const cats = ['全部','知识点','易错点','灵感','好句','其他'];
+    tagsEl.innerHTML = cats.map(c =>
+      `<button class="tag ${c===this.clipFilter?'on':''}" onclick="AiLearn.setClipFilter('${c}')">${c}</button>`
+    ).join('');
+
+    const shown = this.clipFilter === '全部' ? clips : clips.filter(c => c.category === this.clipFilter);
+    listEl.innerHTML = shown.length ? shown.map(c => `
+      <div class="item">
+        <span class="grow">
+          <b style="font-size:12px;color:var(--accent)">[${Util.esc(c.category)}]</b>
+          ${Util.esc(c.text)}
+        </span>
+        <button class="del" onclick="AiLearn.delClip('${c.id}')">✕</button>
+      </div>
+    `).join('') : '<div class="empty">还没有摘录，输入内容试试 AI 归类</div>';
+  },
+
+  setClipFilter(c){ this.clipFilter = c; this.renderClips(); },
+  delClip(id){ Store.softDelete('clips', id); this.renderClips(); }
+};
+/* ==== 功能：AI学习助手 END ==== */
+
+
+/* ==== 功能：备考计时 START ==== */
+const Timer = {
+  POMO: 25 * 60,
+  _sec: 25 * 60,
+  _running: false,
+  _timer: null,
+
+  render(){
+    this.renderCountdown();
+    this.renderPomodoro();
+  },
+
+  renderCountdown(){
+    const examDate = Store.get('examDate', '2026-12-21');
+    const studyStart = Store.get('studyStart', Util.today());
+    const today = new Date(Util.today() + 'T00:00:00');
+    const exam  = new Date(examDate + 'T00:00:00');
+    const start = new Date(studyStart + 'T00:00:00');
+    const daysLeft = Math.ceil((exam - today) / 86400000);
+    const total = (exam - start) / 86400000;
+    const elapsed = (today - start) / 86400000;
+    const pct = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 0;
+
+    const el = document.getElementById('timerCountdown');
+    if (!el) return;
+    el.innerHTML = `
+      <div class="hero num">${daysLeft > 0 ? daysLeft : 0}<span class="unit">天</span></div>
+      <p class="hint">距 ${Util.esc(examDate)} 考试</p>
+      <div class="bar"><span style="width:${pct.toFixed(1)}%"></span></div>
+      <p class="hint">备考进度 ${pct.toFixed(1)}%（自 ${Util.esc(studyStart)} 起）</p>
+      <div class="row" style="margin-top:12px">
+        <input type="date" id="examDateInput" value="${Util.esc(examDate)}" style="flex:1;width:auto">
+        <button class="btn ghost" onclick="Timer.setExamDate()">设考试日</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input type="date" id="studyStartInput" value="${Util.esc(studyStart)}" style="flex:1;width:auto">
+        <button class="btn ghost" onclick="Timer.setStudyStart()">设备考日</button>
+      </div>
+    `;
+  },
+
+  setExamDate(){
+    const v = document.getElementById('examDateInput').value;
+    if (v) { Store.set('examDate', v); UI.toast('考试日期已设置'); this.renderCountdown(); }
+  },
+  setStudyStart(){
+    const v = document.getElementById('studyStartInput').value;
+    if (v) { Store.set('studyStart', v); UI.toast('备考开始日期已设置'); this.renderCountdown(); }
+  },
+
+  renderPomodoro(){
+    const el = document.getElementById('timerPomodoro');
+    if (!el) return;
+    const todayCount = Store.countDaily('pomodoro');
+    const t = new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--){
+      const d = new Date(t); d.setDate(t.getDate() - i);
+      const dateStr = Util.dateOf(d);
+      days.push({ date: dateStr, count: Store.list('pomodoro:' + dateStr).length });
+    }
+    const maxCount = Math.max(1, ...days.map(d => d.count));
+
+    el.innerHTML = `
+      <div class="hero num mono" id="pomoDisplay">${this.fmt(this._sec)}</div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="pomoStartBtn" onclick="Timer.toggle()">${this._running ? '暂停' : '开始'}</button>
+        <button class="btn ghost" onclick="Timer.reset()">重置</button>
+      </div>
+      <p class="hint">今日已完成 <b class="num">${todayCount}</b> 个番茄钟</p>
+      <div class="heat">
+        ${days.map(d => {
+          let cls = '';
+          if (d.count > 0) {
+            const r = d.count / maxCount;
+            cls = r > 0.75 ? 'l4' : r > 0.5 ? 'l3' : r > 0.25 ? 'l2' : 'l1';
+          }
+          return `<div class="sq ${cls}" title="${d.date}: ${d.count}个"></div>`;
+        }).join('')}
+      </div>
+      <p class="hint" style="margin-top:6px">最近 7 天</p>
+    `;
+  },
+
+  fmt(s){
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  },
+
+  toggle(){
+    if (this._running) this.pause(); else this.start();
+  },
+
+  start(){
+    if (this._sec <= 0) return;
+    this._running = true;
+    this._timer = setInterval(() => {
+      this._sec--;
+      const disp = document.getElementById('pomoDisplay');
+      if (disp) disp.textContent = this.fmt(this._sec);
+      if (this._sec <= 0) this.complete();
+    }, 1000);
+    this.updateBtn();
+  },
+
+  pause(){
+    this._running = false;
+    clearInterval(this._timer);
+    this.updateBtn();
+  },
+
+  reset(){
+    this.pause();
+    this._sec = this.POMO;
+    const disp = document.getElementById('pomoDisplay');
+    if (disp) disp.textContent = this.fmt(this._sec);
+    this.updateBtn();
+  },
+
+  complete(){
+    this.pause();
+    this._sec = this.POMO;
+    Store.incrDaily('pomodoro');
+    UI.toast('番茄钟完成！休息 5 分钟');
+    this.renderPomodoro();
+  },
+
+  updateBtn(){
+    const btn = document.getElementById('pomoStartBtn');
+    if (btn) btn.textContent = this._running ? '暂停' : '开始';
+  }
+};
+/* ==== 功能：备考计时 END ==== */
+
+
+/* ==== 功能：错题记录 START ==== */
+const Errors = {
+  subjects: ['英语', '数学', '政治', 'C语言'],
+  filter: '全部',
+
+  render(){
+    const errors = Store.list('errors', (a,b) => (b._u||0) - (a._u||0));
+    const tagsEl = document.getElementById('errorTags');
+    const listEl = document.getElementById('errorList');
+    if (!tagsEl) return;
+
+    const all = ['全部', ...this.subjects];
+    tagsEl.innerHTML = all.map(s =>
+      `<button class="tag ${s===this.filter?'on':''}" onclick="Errors.setFilter('${s}')">${s}</button>`
+    ).join('');
+
+    const shown = this.filter === '全部' ? errors : errors.filter(e => e.subject === this.filter);
+    listEl.innerHTML = shown.length ? shown.map(e => `
+      <div class="item" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div class="row" style="width:100%;align-items:flex-start">
+          <span class="grow">
+            <b style="font-size:12px;color:var(--accent)">[${Util.esc(e.subject)}]</b>
+            <span style="display:block;margin-top:2px">${Util.esc(e.text)}</span>
+          </span>
+          <button class="del" onclick="Errors.del('${e.id}')">✕</button>
+        </div>
+        ${e.analysis ? `<div style="font-size:14px;color:var(--text-dim);line-height:1.6;padding-left:0">解析：${Util.esc(e.analysis)}</div>` : ''}
+      </div>
+    `).join('') : '<div class="empty">还没有错题记录</div>';
+  },
+
+  setFilter(s){ this.filter = s; this.render(); },
+
+  add(){
+    const subj = document.getElementById('errorSubject').value;
+    const textInp = document.getElementById('errorText');
+    const anaInp = document.getElementById('errorAnalysis');
+    const text = textInp.value.trim();
+    if (!text) { UI.toast('请输入错题内容'); return; }
+    const analysis = anaInp.value.trim();
+    Store.upsert('errors', { subject: subj, text, analysis });
+    textInp.value = '';
+    anaInp.value = '';
+    this.render();
+    UI.toast('已记录');
+  },
+
+  del(id){
+    Store.softDelete('errors', id);
+    this.render();
+  }
+};
+/* ==== 功能：错题记录 END ==== */
+
+
+/* ==== 功能：AI英语陪练 START ==== */
+const Chat = {
+  SYS: 'You are an English conversation practice partner for a Chinese student preparing for IELTS. Respond in English only. Keep responses natural and concise (1-3 sentences). If the user makes a significant grammar mistake, briefly note the correction in parentheses at the end of your reply. Keep the conversation going by asking follow-up questions. If the user writes in Chinese, gently encourage them to try in English.',
+
+  render(){
+    const holder = document.getElementById('chatBannerHolder');
+    const listEl = document.getElementById('chatMsgs');
+    const inp = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+    if (!listEl) return;
+
+    const key = Store.getSecret('ai');
+    holder.innerHTML = '';
+    if (!key) {
+      holder.innerHTML = `<div class="banner"><span>需要配置 AI Key 才能使用英语陪练</span><button onclick="App.go('settings')">去设置</button></div>`;
+      listEl.innerHTML = '';
+      if (inp) inp.disabled = true;
+      if (sendBtn) sendBtn.disabled = true;
+      return;
+    }
+    if (inp) inp.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+
+    const msgs = Store.get('chat_msgs', []);
+    listEl.innerHTML = msgs.length ? msgs.map(m => `
+      <div class="msg ${m.role==='user'?'me':'ai'}">${Util.esc(m.content)}</div>
+    `).join('') : '<div class="empty" style="text-align:center">用英语和 AI 开始对话吧</div>';
+    listEl.scrollTop = listEl.scrollHeight;
+  },
+
+  async send(){
+    const inp = document.getElementById('chatInput');
+    const text = inp.value.trim();
+    if (!text) return;
+    const key = Store.getSecret('ai');
+    if (!key) { UI.toast('请先在设置里配置 AI Key'); return; }
+
+    const msgs = Store.get('chat_msgs', []);
+    msgs.push({ role: 'user', content: text });
+    if (msgs.length > 50) msgs.splice(0, msgs.length - 50);
+    Store.set('chat_msgs', msgs);
+    inp.value = '';
+    this.render();
+
+    const listEl = document.getElementById('chatMsgs');
+    const typing = document.createElement('div');
+    typing.className = 'msg ai';
+    typing.id = 'chatTyping';
+    typing.textContent = 'AI is typing…';
+    listEl.appendChild(typing);
+    listEl.scrollTop = listEl.scrollHeight;
+
+    const apiMsgs = [{ role: 'system', content: this.SYS },
+      ...msgs.map(m => ({ role: m.role, content: m.content }))];
+    const res = await Ai.chat(apiMsgs);
+
+    const typingEl = document.getElementById('chatTyping');
+    if (typingEl) typingEl.remove();
+
+    if (res.error) {
+      if (res.error === 'no_key') { UI.toast('请先配置 AI Key'); return; }
+      UI.toast('AI 回复失败：' + res.error);
+      return;
+    }
+
+    msgs.push({ role: 'assistant', content: res.text });
+    Store.set('chat_msgs', msgs);
+    this.render();
+  }
+};
+/* ==== 功能：AI英语陪练 END ==== */
+
+
+App.init();
+</script>
+</body>
+</html>

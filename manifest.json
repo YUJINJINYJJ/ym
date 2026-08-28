@@ -1,0 +1,19 @@
+{
+  "name": "云墨",
+  "short_name": "云墨",
+  "description": "学习工作台",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2ece1",
+  "theme_color": "#ede6d6",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
