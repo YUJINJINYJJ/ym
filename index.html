@@ -190,7 +190,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
 .sq.l4{background:var(--accent);opacity:1}
 
 /* ==== 聊天 ==== */
-.chat-msgs{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:10px;padding:4px;-webkit-overflow-scrolling:touch}
+.chat-msgs{display:flex;flex-direction:column;gap:8px;max-height:none;min-height:200px;overflow-y:auto;margin-bottom:10px;padding:4px;-webkit-overflow-scrolling:touch}
 .chat-msgs::-webkit-scrollbar{display:none}
 .msg{padding:9px 13px;border-radius:14px;max-width:85%;line-height:1.55;font-size:15px;word-break:break-word}
 .msg.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
@@ -1773,7 +1773,7 @@ const Chat = {
 
     const msgs = Store.get('chat_msgs', []);
     msgs.push({ role: 'user', content: text });
-    if (msgs.length > 50) msgs.splice(0, msgs.length - 50);
+    if (msgs.length > 100) msgs.splice(0, msgs.length - 100);
     Store.set('chat_msgs', msgs);
     inp.value = '';
     this.render();
