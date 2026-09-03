@@ -195,6 +195,8 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
 .msg{padding:9px 13px;border-radius:14px;max-width:85%;line-height:1.55;font-size:15px;word-break:break-word}
 .msg.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
 .msg.ai{align-self:flex-start;background:var(--line);color:var(--text);border-bottom-left-radius:4px}
+.speak-btn{border:none;background:none;cursor:pointer;font-size:16px;padding:0 0 0 6px;vertical-align:middle;opacity:0.5;transition:opacity .2s}
+.speak-btn:active{opacity:1}
 
 /* ==== 每日一句 ==== */
 .sentence{font-size:17px;line-height:1.6;margin-bottom:8px;font-weight:500}
@@ -1719,10 +1721,31 @@ const Chat = {
     if (sendBtn) sendBtn.disabled = false;
 
     const msgs = Store.get('chat_msgs', []);
-    listEl.innerHTML = msgs.length ? msgs.map(m => `
-      <div class="msg ${m.role==='user'?'me':'ai'}">${Util.esc(m.content)}</div>
-    `).join('') : '<div class="empty" style="text-align:center">用英语和 AI 开始对话吧</div>';
+    listEl.innerHTML = msgs.length ? msgs.map((m,i) => {
+      if (m.role === 'user') return `<div class="msg me">${Util.esc(m.content)}</div>`;
+      return `<div class="msg ai">${Util.esc(m.content)}<button class="speak-btn" onclick="Chat.speak(${i})" title="朗读">🔊</button></div>`;
+    }).join('') : '<div class="empty" style="text-align:center">用英语和 AI 开始对话吧</div>';
     listEl.scrollTop = listEl.scrollHeight;
+  },
+
+  speaking: null,
+  speak(idx){
+    const msgs = Store.get('chat_msgs', []);
+    const msg = msgs[idx];
+    if (!msg || msg.role !== 'assistant') return;
+
+    if (this.speaking) { window.speechSynthesis.cancel(); this.speaking = null; this.render(); return; }
+
+    if (!window.speechSynthesis) { UI.toast('当前浏览器不支持语音朗读'); return; }
+
+    const u = new SpeechSynthesisUtterance(msg.content);
+    u.lang = 'en-US';
+    u.rate = 0.9;
+    const voices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    if (voices.length) u.voice = voices.find(v => v.lang === 'en-US') || voices[0];
+    u.onstart = () => { this.speaking = idx; this.render(); };
+    u.onend = () => { this.speaking = null; this.render(); };
+    window.speechSynthesis.speak(u);
   },
 
   async send(){
